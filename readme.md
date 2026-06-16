@@ -35,8 +35,8 @@ sudo apt-get install libasound2-dev pkg-config
 
 For the PyO3 module build used by `katzenqt`, see `BUILD.md` in this directory.
 That document covers prerequisites, the `cargo build` artifact path, and how
-`katzenqt/make rust-audio` copies `librustic_audio_tool.so` into
-`katzenqt/src/katzenqt/rustic_audio_tool.so` for runtime loading.
+`make rust-audio` from `katzenqt/` installs `rustic_audio_tool.so` into
+`katzenqt/src/katzenqt/audio/` for runtime loading.
 
 ## Usage
 

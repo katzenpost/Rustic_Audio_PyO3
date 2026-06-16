@@ -233,9 +233,11 @@ fn produce_frames(
         if packet.data.is_empty() {
             continue;
         }
-        let n_samples = decoder
-            .decode(&packet.data, FRAME_SIZE, &mut decode_buffer)
-            .map_err(|err| err.to_string())?;
+        let n_samples = match decoder.decode(&packet.data, FRAME_SIZE, &mut decode_buffer) {
+            Ok(n_samples) => n_samples,
+            Err("Input packet empty") => continue,
+            Err(err) => return Err(err.to_string()),
+        };
         if n_samples == 0 {
             continue;
         }

@@ -153,10 +153,11 @@ impl OpusEncoder {
         let mut input_buffer = vec![0.0f32; frame_size];
         let mut encoded_data = vec![0u8; 1275];
         let mut granulepos = 0i64;
+        let frames: Vec<&[f32]> = resampled_samples.chunks(frame_size).collect();
 
-        for chunk in resampled_samples.chunks(frame_size) {
+        for (index, chunk) in frames.iter().enumerate() {
             input_buffer.clear();
-            input_buffer.extend(chunk);
+            input_buffer.extend(*chunk);
             if input_buffer.len() < frame_size {
                 input_buffer.resize(frame_size, 0.0);
             }
@@ -168,20 +169,19 @@ impl OpusEncoder {
 
             granulepos += frame_size as i64;
 
+            let end_info = if index + 1 == frames.len() {
+                PacketWriteEndInfo::EndStream
+            } else {
+                PacketWriteEndInfo::NormalPacket
+            };
+
             packet_writer.write_packet(
                 encoded_packet.to_vec(),
                 serial,
-                PacketWriteEndInfo::NormalPacket,
+                end_info,
                 granulepos as u64
             )?;
         }
-
-        packet_writer.write_packet(
-            Vec::<u8>::new(),
-            serial,
-            PacketWriteEndInfo::EndStream,
-            granulepos as u64
-        )?;
 
         let final_duration = granulepos as f32 / 48000.0;
         println!("Final Opus duration: {} seconds", final_duration);
@@ -194,5 +194,67 @@ impl OpusEncoder {
             OpusEncodingMode::Cbr => "CBR",
             OpusEncodingMode::Vbr => "VBR",
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::OpusEncoder;
+    use hound::{SampleFormat, WavSpec, WavWriter};
+    use ogg::reading::PacketReader;
+    use std::fs;
+    use std::io::BufReader;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn encode_wav_to_opus_does_not_write_trailing_empty_packet() {
+        let unique_suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let temp_dir = std::env::temp_dir().join(format!(
+            "rustic-audio-encoder-test-{unique_suffix}"
+        ));
+        fs::create_dir_all(&temp_dir).unwrap();
+
+        let wav_path = temp_dir.join("test.wav");
+        let opus_path = temp_dir.join("test.opus");
+
+        let spec = WavSpec {
+            channels: 1,
+            sample_rate: 48_000,
+            bits_per_sample: 16,
+            sample_format: SampleFormat::Int,
+        };
+        let mut writer = WavWriter::create(&wav_path, spec).unwrap();
+        for _ in 0..(960 * 2) {
+            writer.write_sample(0i16).unwrap();
+        }
+        writer.finalize().unwrap();
+
+        OpusEncoder::new()
+            .encode_wav_to_opus(
+                wav_path.to_str().unwrap(),
+                opus_path.to_str().unwrap(),
+            )
+            .unwrap();
+
+        let file = BufReader::new(fs::File::open(&opus_path).unwrap());
+        let mut packet_reader = PacketReader::new(file);
+        packet_reader.read_packet().unwrap();
+        packet_reader.read_packet().unwrap();
+
+        let mut last_audio_packet = None;
+        while let Ok(Some(packet)) = packet_reader.read_packet() {
+            last_audio_packet = Some(packet);
+        }
+
+        let last_packet = last_audio_packet.expect("expected at least one audio packet");
+        assert!(
+            !last_packet.data.is_empty(),
+            "last audio packet should not be empty"
+        );
+
+        let _ = fs::remove_dir_all(temp_dir);
     }
 }

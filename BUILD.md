@@ -1,7 +1,7 @@
 # Building the Rust Audio Module for KatzenQT
 
 This crate produces the PyO3-backed shared object consumed by `katzenqt`.
-katzenqt` now loads the module from its package directory at `katzenqt/src/katzenqt/rustic_audio_tool.so`.
+katzenqt` loads the module from its package directory at `katzenqt/src/katzenqt/audio/rustic_audio_tool.so`.
 
 ## Prerequisites
 
@@ -33,6 +33,10 @@ The PyO3 cdylib artifact will be written to:
 target/debug/librustic_audio_tool.so
 ```
 
+On Linux, Cargo always prefixes cdylib output with `lib`. KatzenQT loads
+`rustic_audio_tool.so` from `katzenqt/src/katzenqt/audio/`; use `make rust-audio`
+from `katzenqt/` to rename and install.
+
 ## Integrated KatzenQT Build
 
 From `katzenqt/`:
@@ -44,15 +48,17 @@ make rust-audio
 
 That does two things:
 
-1. builds this crate via `cargo build --manifest-path ../Rust_Audio_Lib_mod/Cargo.toml`
-2. copies `target/debug/librustic_audio_tool.so` to:
+1. builds this crate via `cargo build`
+2. installs `target/debug/librustic_audio_tool.so` as:
 
 ```text
-katzenqt/src/katzenqt/rustic_audio_tool.so
+katzenqt/src/katzenqt/audio/rustic_audio_tool.so
 ```
 
-At runtime, `katzenqt/src/katzenqt/audio_ptt.py` first looks for the shared
-object next to itself in the package directory, then falls back to legacy
+A copy is also written to `target/debug/rustic_audio_tool.so` in this crate.
+
+At runtime, `katzenqt/src/katzenqt/audio_ptt.py` looks for
+`src/katzenqt/audio/rustic_audio_tool.so`, then falls back to legacy
 site-packages lookup only if needed.
 
 ## Validation
