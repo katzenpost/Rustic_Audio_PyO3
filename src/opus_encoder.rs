@@ -111,10 +111,7 @@ impl OpusEncoder {
         println!("  Total frames: {}", resampled_samples.len() / 960);
 
         let file = BufWriter::new(File::create(output_path)?);
-        let serial = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs() as u32;
+        let serial = content_serial(&resampled_samples);
         let mut packet_writer = PacketWriter::new(file);
 
         // Opus header
@@ -137,7 +134,7 @@ impl OpusEncoder {
         // Comment header
         let mut comment_header = Vec::new();
         comment_header.extend_from_slice(b"OpusTags");
-        let vendor = b"rustic_audio";
+        let vendor = b"";
         comment_header.extend_from_slice(&(vendor.len() as u32).to_le_bytes());
         comment_header.extend_from_slice(vendor);
         comment_header.extend_from_slice(&[0, 0, 0, 0]);
@@ -195,6 +192,17 @@ impl OpusEncoder {
             OpusEncodingMode::Vbr => "VBR",
         }
     }
+}
+
+fn content_serial(samples: &[f32]) -> u32 {
+    let mut hash: u32 = 0x811c_9dc5;
+    for sample in samples {
+        for byte in sample.to_le_bytes() {
+            hash ^= u32::from(byte);
+            hash = hash.wrapping_mul(0x0100_0193);
+        }
+    }
+    hash
 }
 
 #[cfg(test)]
@@ -256,5 +264,66 @@ mod tests {
         );
 
         let _ = fs::remove_dir_all(temp_dir);
+    }
+
+    fn encode(dir: &std::path::Path, value: i16) -> Vec<u8> {
+        let spec = WavSpec {
+            channels: 1,
+            sample_rate: 48_000,
+            bits_per_sample: 16,
+            sample_format: SampleFormat::Int,
+        };
+        let wav = dir.join(format!("in-{value}.wav"));
+        let opus = dir.join(format!("out-{value}.opus"));
+        let mut writer = WavWriter::create(&wav, spec).unwrap();
+        for _ in 0..(960 * 2) {
+            writer.write_sample(value).unwrap();
+        }
+        writer.finalize().unwrap();
+        OpusEncoder::new()
+            .encode_wav_to_opus(wav.to_str().unwrap(), opus.to_str().unwrap())
+            .unwrap();
+        fs::read(&opus).unwrap()
+    }
+
+    fn scratch() -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "rustic-audio-{}",
+            SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    fn serial(bytes: &[u8]) -> u32 {
+        u32::from_le_bytes(bytes[14..18].try_into().unwrap())
+    }
+
+    #[test]
+    fn the_serial_follows_the_content_and_nothing_else() {
+        let dir = scratch();
+        let once = encode(&dir, 1234);
+        assert_eq!(once, encode(&dir, 1234), "a re-encode must match");
+        assert_ne!(serial(&once), serial(&encode(&dir, 2000)));
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        assert!(now.abs_diff(u64::from(serial(&once))) > 86_400);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn the_tags_packet_names_nothing() {
+        let dir = scratch();
+        let bytes = encode(&dir, 55);
+        let at = bytes.windows(8).position(|w| w == b"OpusTags").unwrap() + 8;
+        let vendor = bytes[at..at + 4].try_into().unwrap();
+        assert_eq!(u32::from_le_bytes(vendor), 0);
+        assert_eq!(
+            u32::from_le_bytes(bytes[at + 4..at + 8].try_into().unwrap()),
+            0
+        );
+        let _ = fs::remove_dir_all(dir);
     }
 }
