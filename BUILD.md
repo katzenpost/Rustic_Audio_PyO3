@@ -75,3 +75,12 @@ PYTHONPATH=src .venv/bin/python -c "from katzenqt.audio_ptt import _load_backend
 This workspace vendors `opus-rs` under `vendor/opus-rs` because upstream 0.1.22
 used unstable `usize::is_multiple_of` on stable Rust. Keep that local patch in
 place unless the dependency is updated to a fixed upstream release.
+
+## Without Python
+
+The PyO3 module is behind the default `python` feature. To use the Rust API
+(`VoiceNoteEngine`) from another language, build without it:
+
+```bash
+cargo build --no-default-features
+```

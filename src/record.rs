@@ -10,7 +10,7 @@ use crate::dsp::AudioProcessor;
 pub fn record_audio(file_path: &str, is_recording_flag: Arc<AtomicBool>, processor: AudioProcessor) -> Result<(), Box<dyn Error>> {
     let output_path = Path::new(file_path);
     let host = cpal::default_host();
-    let device = host.default_input_device().expect("Failed to get default input device");
+    let device = host.default_input_device().ok_or("no audio input device")?;
     let config = device.default_input_config()?;
 
     let sample_format = config.sample_format();
@@ -172,6 +172,11 @@ pub fn record_audio(file_path: &str, is_recording_flag: Arc<AtomicBool>, process
     let mut mono_float: Vec<f32> = mono_samples.iter()
         .map(|&s| s as f32 / 32768.0)
         .collect();
+
+    if mono_float.len() < 2 {
+        let _ = std::fs::remove_file(&temp_file);
+        return Err("nothing was recorded".into());
+    }
 
     // Apply highpass filter at 20Hz
     apply_highpass_filter(&mut mono_float, 20.0, input_spec.sample_rate as f32);
