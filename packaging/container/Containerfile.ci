@@ -1,0 +1,13 @@
+ARG BASE=docker.io/debian:13
+FROM ${BASE}
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update \
+	&& apt-get install -y --no-install-recommends \
+		build-essential ca-certificates cargo debhelper dh-python \
+		dpkg-dev git libasound2-dev make pybuild-plugin-pyproject \
+		python3-all-dev python3-maturin python3-pip rust-all \
+	&& rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build

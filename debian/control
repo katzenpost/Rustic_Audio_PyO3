@@ -1,0 +1,24 @@
+Source: rustic-audio-tool
+Section: python
+Priority: optional
+Maintainer: Katzenpost <packages@katzenpost.network>
+Build-Depends: debhelper-compat (= 13),
+               dh-python,
+               pybuild-plugin-pyproject,
+               python3-all-dev,
+               python3-maturin,
+               cargo,
+               rust-all,
+               libasound2-dev
+Standards-Version: 4.7.2
+Homepage: https://github.com/katzenpost/Rustic_Audio_PyO3
+Rules-Requires-Root: no
+
+Package: python3-rustic-audio-tool
+Architecture: any
+Depends: ${python3:Depends},
+         ${shlibs:Depends},
+         ${misc:Depends}
+Description: PyO3 audio recording and playback extension
+ Records, processes and plays back voice audio for katzenqt's
+ push-to-talk, as a Rust extension module.

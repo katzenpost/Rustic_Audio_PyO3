@@ -1,6 +1,6 @@
 [package]
 name = "rustic_audio_tool"
-version = "0.0.2"
+version = "0.0.3"
 authors = ["Brett Alexander Preston"]
 description = "Voice Audio Recording, Processing, and Playback"
 license = "AGPL-3.0-only"
