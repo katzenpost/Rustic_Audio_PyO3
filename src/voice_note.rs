@@ -109,13 +109,14 @@ impl VoiceNoteEngine {
             let wav_path_str = wav_path_for_thread.to_string_lossy().into_owned();
             let opus_path_str = opus_path_for_thread.to_string_lossy().into_owned();
 
-            record_audio(&wav_path_str, recording_flag, processor).map_err(|err| err.to_string())?;
+            let recorded = record_audio(&wav_path_str, recording_flag, processor).map_err(|err| err.to_string());
 
             if cancel_flag.load(Ordering::Relaxed) {
                 let _ = fs::remove_file(&wav_path_for_thread);
                 let _ = fs::remove_file(&opus_path_for_thread);
                 return Err("recording cancelled".to_string());
             }
+            recorded?;
 
             let encode_result = opus_encoder
                 .encode_wav_to_opus(&wav_path_str, &opus_path_str)
